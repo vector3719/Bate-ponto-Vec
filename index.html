@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="Aplicativo de controle de ponto pessoal">
+    <meta name="theme-color" content="#1e293b" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Ponto">
+    <meta name="format-detection" content="telephone=no">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%231e293b' width='192' height='192'/><circle cx='96' cy='96' r='60' fill='%2322c55e'/><path d='M75 96 L90 111 L123 65' stroke='white' stroke-width='8' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%231e293b' width='192' height='192'/><circle cx='96' cy='96' r='60' fill='%2322c55e'/><path d='M75 96 L90 111 L123 65' stroke='white' stroke-width='8' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+    <title>Controle de Ponto</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html {
+            /* Evita "bounce" de scroll em iOS e zoom acidental */
+            overscroll-behavior-y: none;
+            height: 100%;
+        }
+
+        :root {
+            --primary: #1e293b;
+            --primary-light: #334155;
+            --success: #22c55e;
+            --warning: #eab308;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+            --text-secondary: #64748b;
+            --border: #e2e8f0;
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-left: env(safe-area-inset-left, 0px);
+            --safe-right: env(safe-area-inset-right, 0px);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+            min-height: 100vh;
+            min-height: 100dvh;
+            /* Evita seleção de texto acidental ao tocar rápido (feel de app nativo) */
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        /* Permite seleção normal em campos de texto e áreas de leitura */
+        input, textarea, .history-time, .stat-badge {
+            -webkit-user-select: text;
+            user-select: text;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding-bottom: calc(100px + var(--safe-bottom));
+            padding-left: var(--safe-left);
+            padding-right: var(--safe-right);
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            padding: 20px;
+            padding-top: calc(20px + var(--safe-top));
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .header-info {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .clock {
+            font-size: 32px;
+            font-weight: 700;
+            font-family: 'Monaco', 'Courier New', monospace;
+            margin: 10px 0;
+        }
+
+        .main-content {
+            padding: 20px;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text);
+        }
+
+        .punch-button {
+            width: 100%;
+            padding: 20px;
+            min-height: 64px;
+            font-size: 18px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            margin-bottom: 16px;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            color: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            touch-action: manipulation;
+        }
+
+        .punch-button:active {
+            transform: scale(0.98);
+        }
+
+        .punch-button.entry {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        }
+
+        .punch-button.break {
+            background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);
+        }
+
+        .punch-button.return {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        }
+
+        .punch-button.exit {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .punch-button.done {
+            background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+        }
+
+        .status-bar {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .status-item {
+            background: var(--card);
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .status-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        .status-value {
+            font-size: 20px;
+            font-weight: 700;
+            font-family: 'Monaco', 'Courier New', monospace;
+            color: var(--primary);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--card);
+            border-radius: 20px 20px 0 0;
+            padding: 24px;
+            padding-bottom: calc(24px + var(--safe-bottom));
+            width: 100%;
+            max-width: 600px;
+            max-height: 85dvh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            box-shadow: 0 -8px 30px rgba(0,0,0,0.25);
+            animation: slideUp 0.25s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        /* Alça visual de "arrastar para fechar", puramente decorativa */
+        .modal-content::before {
+            content: '';
+            display: block;
+            width: 40px;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            margin: -8px auto 16px auto;
+        }
+
+        @media (min-width: 640px) {
+            .modal {
+                align-items: center;
+            }
+            .modal-content {
+                border-radius: 16px;
+                width: 90%;
+                max-width: 450px;
+                max-height: 90vh;
+                animation: fadeInScale 0.2s ease-out;
+            }
+            .modal-content::before {
+                display: none;
+            }
+        }
+
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.96); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .modal-header {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: var(--text);
+        }
+
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 16px; /* >=16px evita zoom automático no iOS ao focar */
+            font-family: inherit;
+            color: var(--text);
+            background: var(--bg);
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: var(--card);
+            box-shadow: 0 0 0 3px rgba(30, 41, 59, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .button-primary, .button-secondary, .button-danger {
+            flex: 1;
+            padding: 12px;
+            min-height: 44px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s ease, opacity 0.1s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            touch-action: manipulation;
+        }
+
+        .button-primary:active, .button-secondary:active, .button-danger:active {
+            transform: scale(0.96);
+            opacity: 0.85;
+        }
+
+        .button-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .button-primary:hover {
+            background: var(--primary-light);
+        }
+
+        .button-secondary {
+            background: var(--border);
+            color: var(--text);
+        }
+
+        .button-secondary:hover {
+            background: #cbd5e1;
+        }
+
+        .button-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .button-danger:hover {
+            background: #dc2626;
+        }
+
+        .nav-bottom {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--card);
+            border-top: 1px solid var(--border);
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0;
+            padding-top: 8px;
+            padding-bottom: var(--safe-bottom);
+            padding-left: var(--safe-left);
+            padding-right: var(--safe-right);
+            max-width: 600px;
+            margin: 0 auto;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+            z-index: 200;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 0 12px 0;
+            min-height: 48px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            color: var(--text-secondary);
+            font-size: 12px;
+            transition: all 0.15s ease;
+            text-align: center;
+            touch-action: manipulation;
+        }
+
+        .nav-item:active {
+            transform: scale(0.92);
+            opacity: 0.7;
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+        }
+
+        .nav-item span:first-child {
+            font-size: 24px;
+            margin-bottom: 4px;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .dashboard-card {
+            background: var(--card);
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .dashboard-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .dashboard-value {
+            font-size: 24px;
+            font-weight: 700;
+            font-family: 'Monaco', 'Courier New', monospace;
+            color: var(--primary);
+        }
+
+        .dashboard-value.positive {
+            color: var(--success);
+        }
+
+        .dashboard-value.negative {
+            color: var(--danger);
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .calendar-day-name {
+            text-align: center;
+            font-weight: 600;
+            font-size: 12px;
+            color: var(--text-secondary);
+            padding: 8px 0;
+            text-transform: uppercase;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            min-height: 40px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 12px;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+            position: relative;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        .calendar-day:active {
+            transform: scale(1.05);
+        }
+
+        .calendar-day.empty {
+            background: transparent;
+            border: none;
+            cursor: default;
+        }
+
+        .calendar-day.completed {
+            background: linear-gradient(135deg, var(--success) 0%, #16a34a 100%);
+            color: white;
+            border: none;
+        }
+
+        .calendar-day.incomplete {
+            background: #fef08a;
+            color: #713f12;
+            border: none;
+        }
+
+        .calendar-day.extra {
+            background: linear-gradient(135deg, var(--info) 0%, #1d4ed8 100%);
+            color: white;
+            border: none;
+        }
+
+        .calendar-day.deficit {
+            background: #fee2e2;
+            color: #7f1d1d;
+            border: none;
+        }
+
+        .calendar-day.off {
+            background: var(--bg);
+            color: var(--text-secondary);
+            opacity: 0.5;
+            border: 1px dashed var(--border);
+        }
+
+        .calendar-day.empty-day {
+            background: var(--bg);
+            border: 1px dashed var(--border);
+            color: var(--text-secondary);
+        }
+
+        .history-item {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .history-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .history-date {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--primary);
+        }
+
+        .history-time {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            font-family: 'Monaco', 'Courier New', monospace;
+        }
+
+        .history-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .stat-badge {
+            background: var(--bg);
+            padding: 6px 8px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .config-section {
+            margin-bottom: 24px;
+        }
+
+        .config-section-title {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .weekday-config {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .weekday-input {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        .toggle input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .filter-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+
+        .filter-tab {
+            padding: 10px 16px;
+            min-height: 40px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            background: var(--card);
+            color: var(--text);
+            font-size: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: transform 0.1s ease;
+            font-weight: 500;
+            touch-action: manipulation;
+        }
+
+        .filter-tab:active {
+            transform: scale(0.95);
+        }
+
+        .filter-tab.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .alert {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 13px;
+        }
+
+        .alert.info {
+            background: #dbeafe;
+            color: #0c4a6e;
+            border: 1px solid #93c5fd;
+        }
+
+        .alert.success {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #86efac;
+        }
+
+        .alert.warning {
+            background: #fef3c7;
+            color: #78350f;
+            border: 1px solid #fde047;
+        }
+
+        .alert.error {
+            background: #fee2e2;
+            color: #7f1d1d;
+            border: 1px solid #fca5a5;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 20px;
+            }
+
+            .clock {
+                font-size: 28px;
+            }
+
+            .punch-button {
+                font-size: 16px;
+                padding: 18px;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0f172a;
+                --card: #1e293b;
+                --text: #f1f5f9;
+                --text-secondary: #94a3b8;
+                --border: #334155;
+            }
+
+            .form-input, .form-select, .form-textarea {
+                background: #0f172a;
+                border-color: #334155;
+                color: #f1f5f9;
+            }
+
+            .form-input:focus, .form-select:focus, .form-textarea:focus {
+                background: #1e293b;
+                box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.1);
+            }
+
+            .calendar-day.empty-day {
+                background: #1e293b;
+            }
+
+            .calendar-day.incomplete {
+                background: #713f12;
+                color: #fef08a;
+            }
+
+            .calendar-day.deficit {
+                background: #7f1d1d;
+                color: #fee2e2;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⏱️ Controle de Ponto</h1>
+            <div class="header-info">
+                <div id="dateDisplay">--</div>
+                <div class="clock" id="clockDisplay">00:00:00</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- PÁGINA: INÍCIO -->
+            <div class="page active" id="pageHome">
+                <div id="alertContainer"></div>
+
+                <div class="status-bar">
+                    <div class="status-item" style="grid-column: 1 / -1;">
+                        <div class="status-label">Horas Trabalhadas</div>
+                        <div class="status-value" id="todayHours" style="font-size: 32px;">00:00</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Previsto Hoje</div>
+                        <div class="status-value" id="todayExpected" style="font-size: 16px; color: var(--text-secondary);">00:00</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Comparação</div>
+                        <div class="status-value" id="todayBalance" style="font-size: 16px;">+00:00</div>
+                    </div>
+                </div>
+
+                <button class="punch-button entry" id="punchButton">🟢 REGISTRAR ENTRADA</button>
+
+                <div class="card">
+                    <div class="card-title">Ações Rápidas</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <button class="button-primary" style="font-size: 12px;" onclick="app.openManualEntryModal()">📝 Entrada Manual</button>
+                        <button class="button-primary" style="font-size: 12px;" onclick="app.openDayDetailsModal()">📊 Detalhes Hoje</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Próximos Registros</div>
+                    <div id="nextStepsDisplay" style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;"></div>
+                </div>
+            </div>
+
+            <!-- PÁGINA: HISTÓRICO -->
+            <div class="page" id="pageHistory">
+                <div class="filter-tabs">
+                    <button class="filter-tab active" onclick="app.setHistoryFilter('all')">Tudo</button>
+                    <button class="filter-tab" onclick="app.setHistoryFilter('today')">Hoje</button>
+                    <button class="filter-tab" onclick="app.setHistoryFilter('week')">Semana</button>
+                    <button class="filter-tab" onclick="app.setHistoryFilter('month')">Mês</button>
+                </div>
+
+                <div id="historyContainer"></div>
+            </div>
+
+            <!-- PÁGINA: CALENDÁRIO -->
+            <div class="page" id="pageCalendar">
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <button class="button-secondary" style="width: 40px; padding: 8px;" onclick="app.previousMonth()">←</button>
+                        <div style="font-weight: 600; text-align: center;" id="monthDisplay"></div>
+                        <button class="button-secondary" style="width: 40px; padding: 8px;" onclick="app.nextMonth()">→</button>
+                    </div>
+                    <div class="calendar-grid" id="calendarContainer"></div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 16px; font-size: 12px;">
+                    <div style="text-align: center;">
+                        <div style="width: 12px; height: 12px; background: var(--success); border-radius: 3px; margin: 0 auto 4px;"></div>
+                        <div>Completo</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="width: 12px; height: 12px; background: #eab308; border-radius: 3px; margin: 0 auto 4px;"></div>
+                        <div>Incompleto</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="width: 12px; height: 12px; background: var(--info); border-radius: 3px; margin: 0 auto 4px;"></div>
+                        <div>Extra</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PÁGINA: RESUMO -->
+            <div class="page" id="pageSummary">
+                <div class="card">
+                    <div class="card-title">Horas Trabalhadas</div>
+                    <div class="dashboard-grid">
+                        <div class="dashboard-card">
+                            <div class="dashboard-label">Hoje</div>
+                            <div class="dashboard-value" id="summaryToday">00:00</div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="dashboard-label">Esta Semana</div>
+                            <div class="dashboard-value" id="summaryWeek">00:00</div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="dashboard-label">Este Mês</div>
+                            <div class="dashboard-value" id="summaryMonth">00:00</div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="dashboard-label">Previsto no Mês</div>
+                            <div class="dashboard-value" id="summaryExpected">00:00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Total Trabalhado (Acumulado)</div>
+                    <div style="text-align: center; padding: 20px;">
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">Soma de todos os dias registrados — nunca negativo</div>
+                        <div class="dashboard-value" id="summaryBalance" style="font-size: 36px;">00:00</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Comparação com a Jornada</div>
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">Diferença entre o trabalhado e a jornada configurada — apenas para referência</div>
+                    <div class="dashboard-grid">
+                        <div class="dashboard-card">
+                            <div class="dashboard-label">Horas Extras</div>
+                            <div class="dashboard-value positive" id="summaryExtra">00:00</div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="dashboard-label">Horas Faltantes</div>
+                            <div class="dashboard-value negative" id="summaryDeficit">00:00</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PÁGINA: CONFIGURAÇÕES -->
+            <div class="page" id="pageSettings">
+                <div class="card">
+                    <div class="card-title">Jornada Padrão</div>
+                    <div class="form-group">
+                        <label class="form-label">Horas por dia</label>
+                        <input type="number" step="0.5" min="0" id="defaultHoursInput" class="form-input" placeholder="8">
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Intervalo</div>
+                    <div class="toggle">
+                        <input type="checkbox" id="hasBreakInput">
+                        <label for="hasBreakInput">Possui intervalo</label>
+                    </div>
+                    <div id="breakConfig" style="display: none;">
+                        <div class="form-group">
+                            <label class="form-label">Duração do intervalo (minutos)</label>
+                            <input type="number" min="0" id="breakDurationInput" class="form-input" placeholder="60">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Dias da Semana</div>
+                    <div id="weekdayConfigContainer"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Dados</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <button class="button-primary" onclick="app.exportBackup()" style="font-size: 12px;">💾 Exportar</button>
+                        <button class="button-primary" onclick="app.openImportModal()" style="font-size: 12px;">📥 Importar</button>
+                        <button class="button-danger" onclick="app.clearAllData()" style="font-size: 12px; grid-column: 1 / -1;">🗑️ Limpar Tudo</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+                        <p><strong>Versão:</strong> 1.0.0</p>
+                        <p><strong>Armazenamento:</strong> IndexedDB (Local)</p>
+                        <p><strong>Offline:</strong> ✅ Totalmente funcional</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NAVEGAÇÃO INFERIOR -->
+    <nav class="nav-bottom">
+        <button class="nav-item active" onclick="app.goToPage('pageHome')"><span>🏠</span><span>Início</span></button>
+        <button class="nav-item" onclick="app.goToPage('pageHistory')"><span>📋</span><span>Histórico</span></button>
+        <button class="nav-item" onclick="app.goToPage('pageCalendar')"><span>📅</span><span>Calendário</span></button>
+        <button class="nav-item" onclick="app.goToPage('pageSummary')"><span>📊</span><span>Resumo</span></button>
+        <button class="nav-item" onclick="app.goToPage('pageSettings')"><span>⚙️</span><span>Config</span></button>
+    </nav>
+
+    <!-- MODAIS -->
+    <div class="modal" id="confirmPunchModal" onclick="app.closeModalOnBackdrop(event, 'confirmPunchModal')">
+        <div class="modal-content">
+            <div class="modal-header">Confirmar Registro</div>
+            <p style="margin-bottom: 16px; color: var(--text-secondary);">Deseja registrar o ponto neste horário?</p>
+            <div class="status-item" style="margin-bottom: 16px;">
+                <div class="status-label">Horário</div>
+                <div class="status-value" id="confirmTime">--:--:--</div>
+            </div>
+            <div class="button-group">
+                <button class="button-primary" onclick="app.confirmPunch()">Confirmar</button>
+                <button class="button-secondary" onclick="app.closeConfirmModal()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="manualEntryModal" onclick="app.closeModalOnBackdrop(event, 'manualEntryModal')">
+        <div class="modal-content">
+            <div class="modal-header">Entrada Manual</div>
+            <div class="form-group">
+                <label class="form-label">Data</label>
+                <input type="date" id="manualDate" class="form-input">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Horário</label>
+                <input type="time" id="manualTime" class="form-input">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Tipo de Registro</label>
+                <select id="manualType" class="form-select">
+                    <option value="entry">Entrada</option>
+                    <option value="breakStart">Início do Intervalo</option>
+                    <option value="breakEnd">Fim do Intervalo</option>
+                    <option value="exit">Saída</option>
+                </select>
+            </div>
+            <div class="button-group">
+                <button class="button-primary" onclick="app.addManualEntry()">Adicionar</button>
+                <button class="button-secondary" onclick="app.closeManualEntryModal()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="importModal" onclick="app.closeModalOnBackdrop(event, 'importModal')">
+        <div class="modal-content">
+            <div class="modal-header">Importar Backup</div>
+            <p style="margin-bottom: 16px; color: var(--text-secondary);">Selecione um arquivo de backup JSON para restaurar.</p>
+            <div class="form-group">
+                <input type="file" id="importFile" class="form-input" accept=".json" style="cursor: pointer;">
+            </div>
+            <div id="importPreview" style="margin-bottom: 16px; padding: 12px; background: var(--bg); border-radius: 8px; display: none; font-size: 12px; color: var(--text-secondary);"></div>
+            <div class="button-group">
+                <button class="button-primary" onclick="app.importBackup()">Importar</button>
+                <button class="button-secondary" onclick="app.closeImportModal()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="dayDetailsModal" onclick="app.closeModalOnBackdrop(event, 'dayDetailsModal')">
+        <div class="modal-content">
+            <div class="modal-header">Detalhes do Dia</div>
+            <div id="dayDetailsContent"></div>
+            <div class="button-group" style="margin-top: 20px;">
+                <button class="button-secondary" onclick="app.closeDayDetailsModal()">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js').catch(err => {
+                console.log('Service Worker registration failed:', err);
+            });
+        }
+    </script>
+</body>
+</html>
